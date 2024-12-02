@@ -1,69 +1,69 @@
 use std::{collections::HashMap, fs::File, io::{self, BufRead}, path::Path};
+use std::error;
+
+// This lets us bubble up all errors to main() regardless of type
+type Error = Box<dyn error::Error>;
+pub type Result<T> = std::result::Result<T, Error>;
 
 const INPUT: &str = "input.txt";
 
-fn main() {
+fn main() -> Result<()> {
     /* Open Input file */
     let in_file = File::open(Path::new(INPUT)).expect("input.txt cannot be opened!");
 
     /* Parse input file */
-    let (left, right) = parse_input(&in_file);
+    let mut cols = parse_input(&in_file)?;
 
-    // let left = vec![3,4,2,1,3,3];
-    // let right = vec![4,3,5,3,9,3];
+    // let mut cols = (vec![3,4,2,1,3,3], vec![4,3,5,3,9,3]);
+
+    cols.0.sort();
+    cols.1.sort();
 
     /* Compute distance between lists */
-    let distance = compute_distance(&left, &right);
-    println!("The distance between the left and right lists is: {}", distance);
+    let distance = compute_distance(&cols);
+    println!("Distance: {}", distance);
 
-    let similarity = compute_similarity(&left, &right);
-    println!("The similarity between the left and right lists is: {}", similarity);
+    let similarity = compute_similarity(&cols);
+    println!("Similarity: {}", similarity);
+
+    Ok(())
 }
 
-fn parse_input(f: &File) -> (Vec<i32>, Vec<i32>) {
-    let mut left: Vec<i32> = Vec::new();
-    let mut right: Vec<i32> = Vec::new();
+fn parse_input(f: &File) -> Result<(Vec<u32>, Vec<u32>)> {
+    let mut left: Vec<u32> = Vec::new();
+    let mut right: Vec<u32> = Vec::new();
     let reader = io::BufReader::new(f);
 
-    for line in reader.lines().map(|l| l.expect("Error while reading line")) {
+    for line in reader.lines() {
+        let line = line?;
         let tokens: Vec<_> = line.split_whitespace().filter(|k| !k.is_empty()).collect();
         assert_eq!(tokens.len(), 2);
 
-        left.push(tokens[0].parse().expect("parsing error"));
-        right.push(tokens[1].parse().expect("parsing error"));
+        left.push(tokens[0].parse()?);
+        right.push(tokens[1].parse()?);
     }
 
-    /* Sort, lowest to highest */
-    left.sort();
-    right.sort();
-
-    (left, right)
+    Ok((left, right))
 }
 
-fn compute_distance(v1: &Vec<i32>, v2: &Vec<i32>) -> i32 {
-    let mut distance = 0;
-    for i in 0..v1.len() {
-        distance += (v1[i] - v2[i]).abs();
-    }
-
-    distance
+fn compute_distance(cols: &(Vec<u32>, Vec<u32>)) -> u32 {
+    cols.0.iter()
+        .zip(cols.1.iter())
+        .map(|(l,r)| l.abs_diff(*r))
+        .collect::<Vec<u32>>()
+        .into_iter()
+        .sum::<u32>()
 }
 
-
-fn compute_similarity(v1: &Vec<i32>, v2: &Vec<i32>) -> i32 {
-    let mut similarity = 0;
-    let mut r_occurances = HashMap::new();
+fn compute_similarity(cols: &(Vec<u32>, Vec<u32>)) -> u32 {
+    let mut r_occurances: HashMap<u32, u32> = HashMap::new();
 
     /* Count reocurring values of the right list */
-    for elem in v2 {
+    for elem in &cols.1 {
         r_occurances.entry(*elem).and_modify(|counter| *counter += 1).or_insert(1);
     }
 
-    for n in v1 {
-        let count = r_occurances.get(n).unwrap_or(&0);
-
-        similarity += n * count;
-    }
-
-    similarity
+    cols.0.iter()
+        .map(|n| n * r_occurances.get(&n).unwrap_or(&0))
+        .sum()
 }
