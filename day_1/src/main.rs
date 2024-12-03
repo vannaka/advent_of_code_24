@@ -9,7 +9,7 @@ const INPUT: &str = "input.txt";
 
 fn main() -> Result<()> {
     /* Open Input file */
-    let in_file = File::open(Path::new(INPUT)).expect("input.txt cannot be opened!");
+    let in_file = File::open(Path::new(INPUT))?;
 
     /* Parse input file */
     let mut cols = parse_input(&in_file)?;
