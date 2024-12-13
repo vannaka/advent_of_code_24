@@ -1,4 +1,4 @@
-use std::{ error, fs::File, io::{self, BufRead}};
+use std::{ collections::HashMap, error, fs::File, io::{self, BufRead}};
 
 // This lets us bubble up all errors to main() regardless of type
 type Error = Box<dyn error::Error>;
@@ -7,11 +7,6 @@ pub type Result<T> = std::result::Result<T, Error>;
 // const INPUT: &str = "data/day11_example.txt";
 const INPUT: &str = "data/day11.txt";
 
-struct Entry {
-    value: u64,
-    cnt: u64,
-}
-
 fn main() -> Result<()> {
     let cwd = std::env::current_dir()?;
     // println!("The current directory is {}", cwd.display());
@@ -19,43 +14,53 @@ fn main() -> Result<()> {
     /* Open Input file */
     let in_file = File::open(cwd.join(INPUT))?;
 
-    let mut numbers = Box::new(parse_input(&in_file)?);
+    let mut numbers = parse_input(&in_file)?;
+
+    // println!("{:?}", numbers);
 
     for _ in 0..75 {
-        blink(&mut numbers)?;
+        numbers = blink(numbers)?;
+        // println!("{:?}", numbers);
     }
 
-    println!("Count: {}", numbers.len());
+    println!("Count: {}", numbers.iter().map(|(_,v)| v ).sum::<u64>());
 
     Ok(())
 }
 
-fn blink(numbers: &mut Vec<u64>) -> Result<()> {
+fn blink(numbers: HashMap<u64, u64>) -> Result<HashMap<u64, u64>> {
+    let mut new_numbers: HashMap<u64, u64> = HashMap::new();
 
-    /* Iterrate over ORIGINAL list */
-    for idx in 0..numbers.len() {
-        let n = numbers[idx];
+    /* Iterrate over list */
+    for (n, cnt) in numbers {
 
         /* Rule 1 - Number is 0 */
+        /* 0 -> 1 */
         if n == 0 {
-            numbers[idx] = 1;
+            let entry = new_numbers.entry(1).or_insert(0);
+            *entry += cnt;
         }
         /* Rule 2 - Number has even digits */
+        /* Split in two at midpoint of digits */
         else if let Some(n_str) = check_rule_2(n) {
             let mid = n_str.len() / 2;
             let n1: u64 = n_str[0..mid].parse()?;
             let n2: u64 = n_str[mid..].parse()?;
 
-            numbers[idx] = n1;
-            numbers.push(n2);
+            let entry = new_numbers.entry(n1).or_insert(0);
+            *entry += cnt;
+            let entry = new_numbers.entry(n2).or_insert(0);
+            *entry += cnt;
         }
         /* Rule 3 - Number has odd digits */
+        /* Multiply by 2024 */
         else {
-            numbers[idx] = n * 2024;
+            let entry = new_numbers.entry(n*2024u64).or_insert(0);
+            *entry += cnt;
         }
     }
 
-    Ok(())
+    Ok(new_numbers)
 }
 
 fn check_rule_2(n: u64) -> Option<String> {
@@ -67,8 +72,8 @@ fn check_rule_2(n: u64) -> Option<String> {
     }
 }
 
-fn parse_input(f: &File) -> Result<Vec<u64>> {
-    let mut numbers = Vec::new();
+fn parse_input(f: &File) -> Result<HashMap<u64, u64>> {
+    let mut numbers = HashMap::new();
     let reader = io::BufReader::new(f);
 
     for line in reader.lines() {
@@ -80,8 +85,10 @@ fn parse_input(f: &File) -> Result<Vec<u64>> {
         let tokens: Vec<&str> = line.split(" ").filter(|k| !k.is_empty()).collect();
 
         for token in tokens {
-            let n = token.parse()?;
-            numbers.push(n);
+            let n = token.parse::<u64>()?;
+
+            let entry = numbers.entry(n).or_insert(0);
+            *entry += 1;
         }
     }
 
