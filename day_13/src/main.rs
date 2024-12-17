@@ -1,8 +1,7 @@
 use std::{error, fs::File, io::{self, BufRead}};
 use sscanf::sscanf;
 
-extern crate nalgebra as na;
-use na::{Matrix2, Matrix2x1};
+use num_integer::{self, Integer};
 
 // This lets us bubble up all errors to main() regardless of type
 type Error = Box<dyn error::Error>;
@@ -12,8 +11,8 @@ pub type Result<T> = std::result::Result<T, Error>;
 const INPUT: &str = "data/day13.txt";
 
 struct Pair {
-    x: i32,
-    y: i32,
+    x: i128,
+    y: i128,
 }
 
 impl Pair {
@@ -75,40 +74,27 @@ fn main() -> Result<()> {
 /// Find the number of presses of the A and B buttons
 /// that are needed to reach the prize.
 ///
-fn find_moves(game: &Game) -> Option<(u32, u32)> {
+fn find_moves(game: &Game) -> Option<(i128, i128)> {
     /* shortcut vars */
     let prize = &game.prize;
     let a = &game.a;
     let b = &game.b;
 
-    /* solve system of linear equation */
-    let a_mtx = Matrix2::new(a.x as f64, b.x as f64, a.y as f64, b.y as f64);
-    let b_mtx = Matrix2x1::new(prize.x as f64, prize.y as f64);
+    /* Solve system of linear equation */
+    let (b_cnt, b_rem) = (prize.y*a.x - prize.x*a.y).div_rem(&(a.x*b.y - a.y*b.x));
+    let (a_cnt, a_rem) = (prize.x - b_cnt*b.x).div_rem(&a.x);
 
-    let mut a_mtx_inv: na::Matrix<f64, na::Const<2>, na::Const<2>, na::ArrayStorage<f64, 2, 2>> = Default::default();
-    let _ = na::try_invert_to(a_mtx, &mut a_mtx_inv);
-
-    let res = a_mtx_inv * b_mtx;
-
-    /* Verify results */
-    let a_cnt = res[0];
-    let b_cnt = res[1];
-
-    /* Number is very close to a whole number */
-    if f64::abs(a_cnt - ((a_cnt as u32) as f64)) < 0.0001 {
-
-        let a_cnt = a_cnt.round();
-        let b_cnt = b_cnt.round();
-
-        /* One of them is negative */
-        if a_cnt < 0. || b_cnt < 0. {
-            return None;
-        }
-
-        return Some((a_cnt as u32, b_cnt as u32));
+    /* Check for invalid solutions */
+    if a_cnt < 0
+    // || a_cnt > 100
+    || b_cnt < 0
+    // || b_cnt > 100
+    || a_rem != 0
+    || b_rem != 0 {
+        return None
     }
 
-    None
+    Some((a_cnt, b_cnt))
 }
 
 // fn print_games( games: &Vec<Game>) {
@@ -134,21 +120,21 @@ fn parse_input(f: &File) -> Result<Vec<Game>> {
         let mut game = Game::new();
 
         /* Get Button A data */
-        let (_, x, y) = sscanf!(line, "Button {}: X+{}, Y+{}", char, i32, i32)?;
+        let (_, x, y) = sscanf!(line, "Button {}: X+{}, Y+{}", char, i128, i128)?;
         game.a.x = x;
         game.a.y = y;
 
         /* Get Button B data */
         let line = lines.next().expect("B data missing")?;
-        let (_, x, y) = sscanf!(line, "Button {}: X+{}, Y+{}", char, i32, i32)?;
+        let (_, x, y) = sscanf!(line, "Button {}: X+{}, Y+{}", char, i128, i128)?;
         game.b.x = x;
         game.b.y = y;
 
         /* Get Prize data */
         let line = lines.next().expect("Prize data missing")?;
-        let (x, y) = sscanf!(line, "Prize: X={}, Y={}", i32, i32)?;
-        game.prize.x = x;
-        game.prize.y = y;
+        let (x, y) = sscanf!(line, "Prize: X={}, Y={}", i128, i128)?;
+        game.prize.x = x + 10000000000000;
+        game.prize.y = y + 10000000000000;
 
 
         /* Consume empty line */
